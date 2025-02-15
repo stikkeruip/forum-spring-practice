@@ -1,7 +1,9 @@
 package com.uipko.forumbackend.mappers.Impl;
 
-import com.uipko.forumbackend.domain.dto.UserCreationDto;
-import com.uipko.forumbackend.domain.dto.UserResponseDto;
+import com.uipko.forumbackend.domain.dto.UserLoginDto;
+import com.uipko.forumbackend.domain.dto.UserLoginResponseDto;
+import com.uipko.forumbackend.domain.dto.UserRegisterDto;
+import com.uipko.forumbackend.domain.dto.UserRegisterResponseDto;
 import com.uipko.forumbackend.domain.entities.User;
 import com.uipko.forumbackend.mappers.UserMapper;
 import org.springframework.stereotype.Component;
@@ -10,17 +12,17 @@ import org.springframework.stereotype.Component;
 public class UserMapperImpl implements UserMapper {
 
     @Override
-    public User fromCreationDto(UserCreationDto userCreationDto) {
+    public User fromRegisterDto(UserRegisterDto userRegisterDto) {
         return new User(
-                userCreationDto.id(),
-                userCreationDto.name(),
-                userCreationDto.password()
+                userRegisterDto.id(),
+                userRegisterDto.name(),
+                userRegisterDto.password()
         );
     }
 
     @Override
-    public UserCreationDto toCreationDto(User user) {
-        return new UserCreationDto(
+    public UserRegisterDto toRegisterDto(User user) {
+        return new UserRegisterDto(
                 user.getId(),
                 user.getName(),
                 user.getPassword()
@@ -28,19 +30,33 @@ public class UserMapperImpl implements UserMapper {
     }
 
     @Override
-    public User fromResponseDto(UserResponseDto userResponseDto) {
-        return new User(
-                userResponseDto.id(),
-                userResponseDto.name(),
-                null
+    public UserRegisterResponseDto toRegisterResponseDto(User user) {
+        return new UserRegisterResponseDto(
+                user.getId(),
+                user.getName()
         );
     }
 
     @Override
-    public UserResponseDto toResponseDto(User user) {
-        return new UserResponseDto(
+    public User fromLoginDto(UserLoginDto userLoginDto) {
+        return new User(
+                userLoginDto.id(),
+                userLoginDto.name(),
+                userLoginDto.password()
+        );
+    }
+
+    @Override
+    public UserLoginDto toLoginDto(User user) {
+        return null;
+    }
+
+    @Override
+    public UserLoginResponseDto toLoginResponseDto(User user, String token) {
+        return new UserLoginResponseDto(
                 user.getId(),
-                user.getName()
+                user.getName(),
+                token
         );
     }
 }
