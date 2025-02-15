@@ -1,0 +1,94 @@
+# Global ignores
+.DS_Store
+Thumbs.db
+*.log
+node_modules/
+dist/
+out/
+coverage/
+.env
+*.iml
+
+# IntelliJ IDEA / WebStorm
+.idea/
+*.iws
+*.ipr
+*.iml
+
+# WebStorm (frontend)
+npm-debug.log*
+yarn-error.log*
+.vscode/
+*.swp
+.eslintcache
+
+# Frontend build artifacts
+build/
+*.cache
+*.parcel-cache
+*.next/
+.next/
+*.angular/
+.svelte-kit/
+.nuxt/
+
+# IntelliJ and Java (backend)
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Maven
+.mvn/
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+
+# Logs and Database
+*.log
+*.sqlite
+*.db
+*.db-journal
+
+# Lombok
+.lombok/
+
+# Spring Boot specific
+application.properties
+application.yml
+application-dev.properties
+application-prod.properties
+
+# Security files
+*.key
+*.pem
+*.crt
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+*.pid
+*.seed
+
+# Mac system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux system files
+*~ 
