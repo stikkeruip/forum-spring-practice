@@ -1,7 +1,9 @@
 package com.uipko.forumbackend.exceptions;
 
-public class UserNotFoundException extends RuntimeException {
-    public UserNotFoundException(Long id) {
-        super("User with id " + id + " not found.");
+import jakarta.persistence.EntityNotFoundException;
+
+public class UserNotFoundException extends EntityNotFoundException {
+    public UserNotFoundException(String name) {
+        super("User with name " + name + " not found.");
     }
 }

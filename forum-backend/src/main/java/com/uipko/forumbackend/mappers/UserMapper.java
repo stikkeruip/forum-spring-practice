@@ -8,13 +8,11 @@ import com.uipko.forumbackend.domain.entities.User;
 
 public interface UserMapper {
 
-    User fromRegisterDto(UserRegisterDto userRegisterDto);
-    UserRegisterDto toRegisterDto(User user);
+    User registerDtoToUser(UserRegisterDto userRegisterDto);
 
-    UserRegisterResponseDto toRegisterResponseDto(User user);
+    UserRegisterResponseDto userToRegisterResponseDto(User user);
 
-    User fromLoginDto(UserLoginDto userLoginDto);
-    UserLoginDto toLoginDto(User user);
+    User loginDtoToUser(UserLoginDto userLoginDto);
 
-    UserLoginResponseDto toLoginResponseDto(User user, String token);
+    UserLoginResponseDto userToLoginResponseDto(User user, String token);
 }

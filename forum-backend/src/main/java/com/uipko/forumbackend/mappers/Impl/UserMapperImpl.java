@@ -12,49 +12,31 @@ import org.springframework.stereotype.Component;
 public class UserMapperImpl implements UserMapper {
 
     @Override
-    public User fromRegisterDto(UserRegisterDto userRegisterDto) {
+    public User registerDtoToUser(UserRegisterDto userRegisterDto) {
         return new User(
-                userRegisterDto.id(),
                 userRegisterDto.name(),
                 userRegisterDto.password()
         );
     }
 
     @Override
-    public UserRegisterDto toRegisterDto(User user) {
-        return new UserRegisterDto(
-                user.getId(),
-                user.getName(),
-                user.getPassword()
-        );
-    }
-
-    @Override
-    public UserRegisterResponseDto toRegisterResponseDto(User user) {
+    public UserRegisterResponseDto userToRegisterResponseDto(User user) {
         return new UserRegisterResponseDto(
-                user.getId(),
                 user.getName()
         );
     }
 
     @Override
-    public User fromLoginDto(UserLoginDto userLoginDto) {
+    public User loginDtoToUser(UserLoginDto userLoginDto) {
         return new User(
-                userLoginDto.id(),
                 userLoginDto.name(),
                 userLoginDto.password()
         );
     }
 
     @Override
-    public UserLoginDto toLoginDto(User user) {
-        return null;
-    }
-
-    @Override
-    public UserLoginResponseDto toLoginResponseDto(User user, String token) {
+    public UserLoginResponseDto userToLoginResponseDto(User user, String token) {
         return new UserLoginResponseDto(
-                user.getId(),
                 user.getName(),
                 token
         );
