@@ -5,7 +5,6 @@ import com.uipko.forumbackend.domain.dto.UserRegisterDto;
 import com.uipko.forumbackend.domain.dto.UserRegisterResponseDto;
 import com.uipko.forumbackend.domain.entities.User;
 import com.uipko.forumbackend.mappers.UserMapper;
-import com.uipko.forumbackend.services.JwtService;
 import com.uipko.forumbackend.services.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -16,7 +15,6 @@ public class UserController {
 
     private final UserService userService;
     private final UserMapper userMapper;
-    private final JwtService jwtService;
 
     @PostMapping(path = "/register")
     public UserRegisterResponseDto registerUser(@RequestBody UserRegisterDto userRegisterDto) {
@@ -33,7 +31,7 @@ public class UserController {
     }
 
     @GetMapping(path = "/profile")
-    public String userProfile () {
+    public String userProfile() {
         return "Hello";
     }
 }
