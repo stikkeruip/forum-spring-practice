@@ -9,5 +9,5 @@ public interface UserService {
 
     String loginUser(User user);
 
-    void deleteUser(String name);
+    void deleteUser(String userName); //TODO Make soft delete
 }

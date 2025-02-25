@@ -79,7 +79,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({PostNotFoundException.class})
     public ResponseEntity<Object> handleNameNotFoundException(PostNotFoundException exception) {
         return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .status(HttpStatus.BAD_REQUEST)
                 .body(exception.getMessage());
     }
 
@@ -87,6 +87,40 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Object> handleNameNotFoundException(PostUpdateTitleException exception) {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
+                .body(exception.getMessage());
+    }
+
+    @ExceptionHandler({PostDeleteUnauthorizedException.class})
+    public ResponseEntity<Object> handleNameNotFoundException(PostDeleteUnauthorizedException exception) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(exception.getMessage());
+    }
+
+    /**
+     * ================================
+     * Comment Exception Handlers
+     * ================================
+     */
+
+    @ExceptionHandler({CommentContentEmptyException.class})
+    public ResponseEntity<Object> handleNameNotFoundException(CommentContentEmptyException exception) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(exception.getMessage());
+    }
+
+    @ExceptionHandler({CommentNotFoundException.class})
+    public ResponseEntity<Object> handleNameNotFoundException(CommentNotFoundException exception) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(exception.getMessage());
+    }
+
+    @ExceptionHandler({CommentDeleteUnauthorizedException.class})
+    public ResponseEntity<Object> handleNameNotFoundException(CommentDeleteUnauthorizedException exception) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
                 .body(exception.getMessage());
     }
 }

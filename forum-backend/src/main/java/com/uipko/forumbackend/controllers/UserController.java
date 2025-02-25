@@ -6,15 +6,18 @@ import com.uipko.forumbackend.domain.dto.UserRegisterResponseDto;
 import com.uipko.forumbackend.domain.entities.User;
 import com.uipko.forumbackend.mappers.UserMapper;
 import com.uipko.forumbackend.services.UserService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-@RequiredArgsConstructor
 @RestController
 public class UserController {
 
     private final UserService userService;
     private final UserMapper userMapper;
+
+    public UserController(UserService userService, UserMapper userMapper) {
+        this.userService = userService;
+        this.userMapper = userMapper;
+    }
 
     @PostMapping(path = "/register")
     public UserRegisterResponseDto registerUser(@RequestBody UserRegisterDto userRegisterDto) {

@@ -5,23 +5,30 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "posts")
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
 @EqualsAndHashCode
-public class Post {
-
+@ToString
+@Table(name = "comments")
+@Entity
+public class Comment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false, unique = true)
     private Long id;
 
     @ManyToOne
+    @JoinColumn(name = "post_id", nullable = false)
+    private Post post;
+
+    @ManyToOne
     @JoinColumn(name = "user_name", nullable = false)
     private User user;
+
+    @Column(name = "content", nullable = false)
+    private String content;
 
     @Column(name = "created_date", nullable = false)
     private LocalDateTime createdDate;
@@ -31,10 +38,4 @@ public class Post {
 
     @Column(name = "deleted_date")
     private LocalDateTime deletedDate;
-
-    @Column(name = "title", nullable = false)
-    private String title;
-
-    @Column(name = "content", nullable = false)
-    private String content;
 }

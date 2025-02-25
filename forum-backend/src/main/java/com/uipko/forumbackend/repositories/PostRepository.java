@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
-    Optional<Post> getPostById(Long id);
+    Optional<Post> findByIdAndDeletedDateIsNull(Long id);
 
-    List<Post> findPostsByUser(User user);
+    List<Post> findPostsByUserAndDeletedDateIsNull(User user);
 }

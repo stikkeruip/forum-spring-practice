@@ -12,7 +12,7 @@ public interface PostService {
 
     Post updatePost(Post newPost);
 
-    void deletePost(Post post);
+    void deletePost(Long id);
 
-    List<Post> getPostsByUser(User user);
+    List<Post> getPostsByUser(User user); //TODO change to userName
 }

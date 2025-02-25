@@ -3,15 +3,13 @@ package com.uipko.forumbackend.services.impl;
 import com.uipko.forumbackend.domain.entities.Post;
 import com.uipko.forumbackend.domain.entities.User;
 import com.uipko.forumbackend.exceptions.PostContentEmptyException;
+import com.uipko.forumbackend.exceptions.PostDeleteUnauthorizedException;
 import com.uipko.forumbackend.exceptions.PostNotFoundException;
 import com.uipko.forumbackend.exceptions.PostTitleEmptyException;
-import com.uipko.forumbackend.exceptions.UserNotFoundException;
 import com.uipko.forumbackend.repositories.PostRepository;
-import com.uipko.forumbackend.repositories.UserRepository;
+import com.uipko.forumbackend.security.util.CurrentUserProvider;
 import com.uipko.forumbackend.services.PostService;
 import jakarta.transaction.Transactional;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -21,11 +19,11 @@ import java.util.List;
 public class PostServiceImpl implements PostService {
 
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
+    private final CurrentUserProvider currentUserProvider;
 
-    public PostServiceImpl(PostRepository postRepository, UserRepository userRepository) {
+    public PostServiceImpl(PostRepository postRepository, CurrentUserProvider currentUserProvider) {
         this.postRepository = postRepository;
-        this.userRepository = userRepository;
+        this.currentUserProvider = currentUserProvider;
     }
 
     @Transactional
@@ -38,10 +36,7 @@ public class PostServiceImpl implements PostService {
             throw new PostContentEmptyException();
         }
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String name = authentication.getName();
-
-        User user = userRepository.findUserByName(name).orElseThrow(() -> new UserNotFoundException(name));
+        User user = currentUserProvider.getAuthenticatedUser();
         post.setUser(user);
 
         return postRepository.save(post);
@@ -49,7 +44,7 @@ public class PostServiceImpl implements PostService {
 
     @Override
     public Post getPost(Long id) {
-        return postRepository.findById(id).orElseThrow(() -> new PostNotFoundException(id));
+        return postRepository.findByIdAndDeletedDateIsNull(id).orElseThrow(() -> new PostNotFoundException(id));
     }
 
     @Override
@@ -62,18 +57,26 @@ public class PostServiceImpl implements PostService {
         }
 
         post.setContent(newPost.getContent());
-        post.setUpdatedDate(LocalDateTime.now());
+        post.setUpdatedDate(newPost.getUpdatedDate());
         return postRepository.save(post);
     }
 
     @Transactional
     @Override
-    public void deletePost(Post post) {
-        postRepository.delete(post);
+    public void deletePost(Long id) {
+        Post post = postRepository.findById(id).orElseThrow(() -> new PostNotFoundException(id));
+        User user = currentUserProvider.getAuthenticatedUser();
+
+        if (!user.equals(post.getUser())) {
+            throw new PostDeleteUnauthorizedException(user.getName());
+        }
+
+        post.setDeletedDate(LocalDateTime.now());
+        postRepository.save(post);
     }
 
     @Override
     public List<Post> getPostsByUser(User user) {
-        return postRepository.findPostsByUser(user);
+        return postRepository.findPostsByUserAndDeletedDateIsNull(user);
     }
 }

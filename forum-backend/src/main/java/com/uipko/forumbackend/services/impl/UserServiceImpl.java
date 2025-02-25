@@ -1,14 +1,16 @@
 package com.uipko.forumbackend.services.impl;
 
 import com.uipko.forumbackend.domain.entities.User;
-import com.uipko.forumbackend.exceptions.*;
+import com.uipko.forumbackend.exceptions.IncorrectLoginException;
+import com.uipko.forumbackend.exceptions.UserNameEmptyException;
+import com.uipko.forumbackend.exceptions.UserNameExistsException;
+import com.uipko.forumbackend.exceptions.UserNotFoundException;
 import com.uipko.forumbackend.repositories.UserRepository;
 import com.uipko.forumbackend.services.JwtService;
 import com.uipko.forumbackend.services.UserService;
 import jakarta.transaction.Transactional;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -45,7 +47,7 @@ public class UserServiceImpl implements UserService {
             throw new UserNameExistsException(user.getName());
         }
 
-        return userRepository.save(new User (
+        return userRepository.save(new User(
                 user.getName(),
                 passwordEncoder.encode(user.getPassword()))
         );
@@ -54,7 +56,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public String loginUser(User user) {
         try {
-            Authentication authentication = authenticationManager.authenticate(
+            authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(user.getName(), user.getPassword())
             );
             return jwtService.generateToken(user.getName());
@@ -65,7 +67,7 @@ public class UserServiceImpl implements UserService {
 
     @Transactional
     @Override
-    public void deleteUser(String name) {
-        userRepository.delete(getUser(name));
+    public void deleteUser(String userName) {
+        userRepository.delete(getUser(userName));
     }
 }
