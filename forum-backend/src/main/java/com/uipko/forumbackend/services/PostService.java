@@ -15,4 +15,12 @@ public interface PostService {
     void deletePost(Long id);
 
     List<Post> getPostsByUser(User user); //TODO change to userName
+
+    List<Post> getAllPosts();
+
+    List<Post> getDeletedPosts();
+
+    Post getDeletedPostById(Long id);
+
+    Post reactToPost(Long postId, String reactionType);
 }

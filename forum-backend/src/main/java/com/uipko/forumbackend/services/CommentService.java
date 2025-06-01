@@ -16,4 +16,6 @@ public interface CommentService {
     List<Comment> getCommentsByUser(String userName);
 
     List<Comment> getCommentsByPost(Long postId);
+
+    Comment reactToComment(Long commentId, String reactionType);
 }

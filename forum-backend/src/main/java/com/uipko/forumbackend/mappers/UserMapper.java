@@ -1,10 +1,9 @@
 package com.uipko.forumbackend.mappers;
 
-import com.uipko.forumbackend.domain.dto.UserLoginDto;
-import com.uipko.forumbackend.domain.dto.UserLoginResponseDto;
-import com.uipko.forumbackend.domain.dto.UserRegisterDto;
-import com.uipko.forumbackend.domain.dto.UserRegisterResponseDto;
+import com.uipko.forumbackend.domain.dto.*;
 import com.uipko.forumbackend.domain.entities.User;
+
+import java.util.List;
 
 public interface UserMapper {
 
@@ -15,4 +14,6 @@ public interface UserMapper {
     User loginDtoToUser(UserLoginDto userLoginDto);
 
     UserLoginResponseDto userToLoginResponseDto(User user, String token);
+
+    UserProfileResponseDto userToProfileResponseDto(User user, List<PostResponseDto> posts);
 }

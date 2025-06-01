@@ -11,6 +11,7 @@ public record PostResponseDto(
         Long likeCount,
         Long dislikeCount,
         LocalDateTime createdDate,
-        LocalDateTime updatedDate
+        LocalDateTime updatedDate,
+        LocalDateTime deletedDate
 ) {
 }

@@ -6,6 +6,7 @@ import com.uipko.forumbackend.mappers.CommentMapper;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 
 @Component
 public class CommentMapperImpl implements CommentMapper {
@@ -18,7 +19,10 @@ public class CommentMapperImpl implements CommentMapper {
                 commentCreateDto.content(),
                 LocalDateTime.now(),
                 null,
-                null
+                null,
+                0,
+                0,
+                new HashSet<>()
         );
     }
 

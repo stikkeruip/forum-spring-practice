@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "posts")
@@ -11,7 +13,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Getter
 @Setter
-@EqualsAndHashCode
+@EqualsAndHashCode(exclude = {"reactions"})
 public class Post {
 
     @Id
@@ -37,4 +39,13 @@ public class Post {
 
     @Column(name = "content", nullable = false)
     private String content;
+
+    @Column(name = "likes", nullable = false)
+    private Integer likes = 0;
+
+    @Column(name = "dislikes", nullable = false)
+    private Integer dislikes = 0;
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<PostReaction> reactions = new HashSet<>();
 }

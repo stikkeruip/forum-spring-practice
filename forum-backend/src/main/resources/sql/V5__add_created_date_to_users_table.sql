@@ -1,0 +1,2 @@
+ALTER TABLE users
+    ADD COLUMN created_date TIMESTAMPTZ NOT NULL DEFAULT now();

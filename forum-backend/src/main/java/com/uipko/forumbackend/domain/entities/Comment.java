@@ -4,13 +4,15 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-@EqualsAndHashCode
-@ToString
+@EqualsAndHashCode(exclude = {"reactions"})
+@ToString(exclude = {"reactions"})
 @Table(name = "comments")
 @Entity
 public class Comment {
@@ -38,4 +40,13 @@ public class Comment {
 
     @Column(name = "deleted_date")
     private LocalDateTime deletedDate;
+
+    @Column(name = "likes", nullable = false)
+    private Integer likes = 0;
+
+    @Column(name = "dislikes", nullable = false)
+    private Integer dislikes = 0;
+
+    @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<CommentReaction> reactions = new HashSet<>();
 }
