@@ -6,7 +6,7 @@ export default function ForumLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-center px-4 mx-auto">
+        <div className="container flex h-16 items-center justify-start px-4 mx-auto">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-700"></div>
             <span className="text-xl font-semibold tracking-tight">Forum</span>
