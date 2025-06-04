@@ -15,5 +15,9 @@ public interface UserMapper {
 
     UserLoginResponseDto userToLoginResponseDto(User user, String token);
 
-    UserProfileResponseDto userToProfileResponseDto(User user, List<PostResponseDto> posts);
+    UserProfileResponseDto userToProfileResponseDto(User user, List<PostResponseDto> posts, List<PostResponseDto> deletedPosts);
+    
+    UserProfileResponseDto toProfileResponseDto(User user);
+    
+    OnlineUserDto userToOnlineUserDto(User user);
 }

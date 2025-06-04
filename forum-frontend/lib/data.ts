@@ -1,5 +1,55 @@
 import type { Post } from "./types"
 
+// API function to restore a deleted post
+export async function restorePost(postId: string, token: string): Promise<void> {
+  const response = await fetch(`/api/posts/${postId}/restore`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Failed to restore post')
+  }
+}
+
+// API function to react to a comment
+export async function reactToComment(
+  postId: string, 
+  commentId: number, 
+  reactionType: 'LIKE' | 'DISLIKE',
+  token: string
+): Promise<{
+  id: number;
+  owner: string;
+  content: string;
+  replyCount: number;
+  likeCount: number;
+  dislikeCount: number;
+  userReaction: 'LIKE' | 'DISLIKE' | null;
+  createdDate: string;
+  updatedDate: string;
+}> {
+  const response = await fetch(`/api/posts/${postId}/comments/${commentId}/reactions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ reactionType })
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Failed to react to comment')
+  }
+
+  return await response.json()
+}
+
 export const posts: Post[] = [
   {
     id: "1",
@@ -13,6 +63,7 @@ export const posts: Post[] = [
     },
     date: "Just now",
     likes: 24,
+    dislikes: 2,
     comments: 5,
   },
   {
@@ -27,6 +78,7 @@ export const posts: Post[] = [
     },
     date: "2 hours ago",
     likes: 42,
+    dislikes: 3,
     comments: 13,
     image: "/placeholder.svg?height=400&width=600",
   },
@@ -42,6 +94,7 @@ export const posts: Post[] = [
     },
     date: "Yesterday",
     likes: 18,
+    dislikes: 1,
     comments: 27,
   },
   {
@@ -56,6 +109,7 @@ export const posts: Post[] = [
     },
     date: "3 days ago",
     likes: 86,
+    dislikes: 5,
     comments: 31,
   },
 ]

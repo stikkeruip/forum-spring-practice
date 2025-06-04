@@ -23,4 +23,6 @@ public interface PostService {
     Post getDeletedPostById(Long id);
 
     Post reactToPost(Long postId, String reactionType);
+
+    void restorePost(Long id);
 }

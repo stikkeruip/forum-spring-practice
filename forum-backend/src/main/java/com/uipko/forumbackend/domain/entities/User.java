@@ -27,6 +27,12 @@ public class User {
     @Column(name = "role", nullable = false)
     private String role = "USER";
 
+    @Column(name = "is_online")
+    private Boolean isOnline = false;
+
+    @Column(name = "last_seen")
+    private LocalDateTime lastSeen;
+
     /**
      * Check if the user has a specific role.
      * 

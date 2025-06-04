@@ -83,10 +83,84 @@ The API implements a role hierarchy:
         "updatedDate": "2023-05-15T10:30:00",
         "deletedDate": null
       }
+    ],
+    "deletedPosts": [
+      {
+        "postId": 2,
+        "owner": "username",
+        "title": "Deleted Post Title",
+        "content": "Deleted post content",
+        "commentCount": 0,
+        "likeCount": 2,
+        "dislikeCount": 0,
+        "createdDate": "2023-05-10T10:30:00",
+        "updatedDate": "2023-05-10T10:30:00",
+        "deletedDate": "2023-05-20T15:45:00"
+      }
     ]
   }
   ```
-- **Description**: Get the current user's profile information including their posts.
+- **Description**: Get the current user's profile information including their active posts and deleted posts. Users can only see their own deleted posts. Admins and moderators can see deleted posts when viewing user profiles.
+
+#### Check Username Existence
+- **URL**: `/users/exists`
+- **Method**: `GET`
+- **Authentication**: Not required
+- **Query Parameters**:
+  - `username`: The username to check
+- **Response**: `200 OK`
+  ```json
+  {
+    "exists": true
+  }
+  ```
+- **Description**: Check if a username already exists in the system. Useful for registration validation.
+
+#### Get User Profile by Username
+- **URL**: `/users/{username}/profile`
+- **Method**: `GET`
+- **Authentication**: Optional (required for viewing deleted posts)
+- **Path Parameters**:
+  - `username`: The username of the user whose profile to retrieve
+- **Response**: `200 OK`
+  ```json
+  {
+    "username": "username",
+    "createdDate": "2023-01-01T00:00:00",
+    "posts": [
+      {
+        "postId": 1,
+        "owner": "username",
+        "title": "Post Title",
+        "content": "Post content",
+        "commentCount": 2,
+        "likeCount": 5,
+        "dislikeCount": 1,
+        "createdDate": "2023-05-15T10:30:00",
+        "updatedDate": "2023-05-15T10:30:00",
+        "deletedDate": null
+      }
+    ],
+    "deletedPosts": [
+      {
+        "postId": 2,
+        "owner": "username",
+        "title": "Deleted Post Title",
+        "content": "Deleted post content",
+        "commentCount": 0,
+        "likeCount": 2,
+        "dislikeCount": 0,
+        "createdDate": "2023-05-10T10:30:00",
+        "updatedDate": "2023-05-10T10:30:00",
+        "deletedDate": "2023-05-20T15:45:00"
+      }
+    ]
+  }
+  ```
+- **Description**: Get any user's profile information including their active posts. Deleted posts are only included if:
+  - The requester is viewing their own profile
+  - The requester is an admin or moderator
+  - Unauthenticated users can view profiles but won't see deleted posts
 
 ### Posts
 
@@ -134,7 +208,8 @@ The API implements a role hierarchy:
     "dislikeCount": 1,
     "createdDate": "2023-05-15T10:30:00",
     "updatedDate": "2023-05-15T10:30:00",
-    "deletedDate": null
+    "deletedDate": null,
+    "deletedBy": null
   }
   ```
 - **Description**: Get a specific post by ID. For deleted posts, only the post owner, admins, and moderators can access them. Other users will receive a 404 Not Found response for deleted posts.
@@ -169,6 +244,18 @@ The API implements a role hierarchy:
 - **Response**: `204 No Content`
 - **Description**: Delete a post. Regular users can only delete their own posts, while moderators and admins can delete any post. If the post is already deleted, the endpoint will return an error.
 
+#### Restore Post
+- **URL**: `/posts/{id}/restore`
+- **Method**: `POST`
+- **Authentication**: Required
+- **Path Parameters**:
+  - `id`: The ID of the post to restore
+- **Response**: `204 No Content`
+- **Description**: Restore a deleted post. Authorization rules:
+  - Regular users can only restore posts they deleted themselves (cannot restore if deleted by admin/moderator)
+  - Admins and moderators can restore any deleted post
+  - If the post is not deleted, the endpoint will return an error
+
 #### React to Post
 - **URL**: `/posts/{id}/reactions`
 - **Method**: `POST`
@@ -194,7 +281,8 @@ The API implements a role hierarchy:
     "dislikeCount": 1,
     "createdDate": "2023-05-15T10:30:00",
     "updatedDate": "2023-05-15T10:30:00",
-    "deletedDate": null
+    "deletedDate": null,
+    "deletedBy": null
   }
   ```
 - **Description**: React to a post with a like or dislike. This endpoint only works with non-deleted posts.
@@ -216,7 +304,8 @@ The API implements a role hierarchy:
       "dislikeCount": 0,
       "createdDate": "2023-05-15T10:30:00",
       "updatedDate": "2023-05-15T10:30:00",
-      "deletedDate": "2023-05-20T15:45:00"
+      "deletedDate": "2023-05-20T15:45:00",
+      "deletedBy": "admin"
     }
   ]
   ```
@@ -243,7 +332,8 @@ The API implements a role hierarchy:
     "dislikeCount": 0,
     "createdDate": "2023-05-15T10:30:00",
     "updatedDate": "2023-05-15T10:30:00",
-    "deletedDate": "2023-05-20T15:45:00"
+    "deletedDate": "2023-05-20T15:45:00",
+    "deletedBy": "moderator"
   }
   ```
 - **Description**: Get a specific deleted post by ID. Access is role-based:
@@ -357,7 +447,6 @@ The API implements a role hierarchy:
   - `commentId`: The ID of the comment
 - **Response**: `204 No Content`
 - **Description**: Delete a comment. Regular users can only delete their own comments, while moderators and admins can delete any comment. This follows the role hierarchy: ADMIN > MODERATOR > USER.
-- **Note**: This endpoint is documented but needs to be implemented in the CommentController class.
 
 ## Error Handling
 The API returns appropriate HTTP status codes for different error scenarios:
@@ -401,5 +490,5 @@ The API returns appropriate HTTP status codes for different error scenarios:
 
 ## Notes
 - The API implements soft deletion for posts. Deleted posts are only accessible to the post owner, admins, and moderators.
-- The DELETE endpoint for comments is documented but needs to be implemented in the CommentController class.
+- The API implements soft deletion for comments as well, maintaining consistency with the post deletion functionality.
 - The API includes permission checks to ensure proper access control based on the role hierarchy.

@@ -7,6 +7,8 @@ import com.uipko.forumbackend.domain.dto.ReactionDto;
 import com.uipko.forumbackend.domain.entities.Comment;
 import com.uipko.forumbackend.mappers.CommentMapper;
 import com.uipko.forumbackend.services.CommentService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +18,8 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/posts/{postId}/comments")
 public class CommentController {
+
+    private static final Logger logger = LoggerFactory.getLogger(CommentController.class);
 
     private final CommentService commentService;
     private final CommentMapper commentMapper;
@@ -29,14 +33,28 @@ public class CommentController {
     public ResponseEntity<CommentCreateResponseDto> createComment(
             @RequestBody CommentCreateDto commentCreateDto,
             @PathVariable Long postId) {
-        Comment comment = commentService.createComment(commentMapper.createDtoToComment(commentCreateDto), postId);
+        logger.info("Creating comment on post ID: {}", postId);
+        
+        Comment comment;
+        if (commentCreateDto.parentCommentId() != null) {
+            // Creating a reply
+            logger.info("Creating reply to comment ID: {}", commentCreateDto.parentCommentId());
+            comment = commentService.createReply(commentMapper.createDtoToComment(commentCreateDto), postId, commentCreateDto.parentCommentId());
+        } else {
+            // Creating a top-level comment
+            comment = commentService.createComment(commentMapper.createDtoToComment(commentCreateDto), postId);
+        }
+        
+        logger.info("Comment created with ID: {}", comment.getId());
         return ResponseEntity.ok(commentMapper.commentToCreateDto(comment));
     }
 
     @GetMapping
     public ResponseEntity<List<CommentResponseDto>> getCommentsByPost(@PathVariable Long postId) {
         List<Comment> comments = commentService.getCommentsByPost(postId);
+        // Only return top-level comments (replies are nested within them)
         List<CommentResponseDto> commentDtos = comments.stream()
+                .filter(comment -> comment.getParentComment() == null)
                 .map(commentMapper::commentToResponseDto)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(commentDtos);
@@ -55,7 +73,17 @@ public class CommentController {
             @PathVariable Long postId,
             @PathVariable Long commentId,
             @RequestBody ReactionDto reactionDto) {
+        logger.info("Reaction {} on comment ID: {}", reactionDto.getReactionType(), commentId);
         Comment comment = commentService.reactToComment(commentId, reactionDto.getReactionType());
         return ResponseEntity.ok(commentMapper.commentToResponseDto(comment));
+    }
+
+    @DeleteMapping("/{commentId}")
+    public ResponseEntity<Void> deleteComment(
+            @PathVariable Long postId,
+            @PathVariable Long commentId) {
+        logger.info("Deleting comment ID: {} from post ID: {}", commentId, postId);
+        commentService.deleteComment(commentId);
+        return ResponseEntity.noContent().build();
     }
 }

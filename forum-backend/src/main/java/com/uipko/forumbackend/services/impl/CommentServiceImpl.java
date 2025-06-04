@@ -13,6 +13,7 @@ import com.uipko.forumbackend.repositories.CommentRepository;
 import com.uipko.forumbackend.repositories.PostRepository;
 import com.uipko.forumbackend.security.util.CurrentUserProvider;
 import com.uipko.forumbackend.services.CommentService;
+import com.uipko.forumbackend.services.NotificationService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -27,13 +28,16 @@ public class CommentServiceImpl implements CommentService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final CommentReactionRepository commentReactionRepository;
+    private final NotificationService notificationService;
 
     public CommentServiceImpl(CurrentUserProvider currentUserProvider, PostRepository postRepository, 
-                             CommentRepository commentRepository, CommentReactionRepository commentReactionRepository) {
+                             CommentRepository commentRepository, CommentReactionRepository commentReactionRepository,
+                             NotificationService notificationService) {
         this.currentUserProvider = currentUserProvider;
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
         this.commentReactionRepository = commentReactionRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -48,7 +52,35 @@ public class CommentServiceImpl implements CommentService {
 
         comment.setPost(post);
         comment.setUser(user);
-        return commentRepository.save(comment);
+        Comment savedComment = commentRepository.save(comment);
+        
+        // Send notification to post owner about new comment
+        notificationService.createCommentNotification(user, post.getUser(), post, savedComment);
+        
+        return savedComment;
+    }
+
+    @Transactional
+    @Override
+    public Comment createReply(Comment reply, Long postId, Long parentCommentId) {
+        if (reply.getContent() == null || reply.getContent().isBlank()) {
+            throw new CommentContentEmptyException();
+        }
+
+        Post post = postRepository.findById(postId).orElseThrow(() -> new PostNotFoundException(postId));
+        Comment parentComment = commentRepository.findByIdAndDeletedDateIsNull(parentCommentId)
+                .orElseThrow(() -> new CommentNotFoundException(parentCommentId));
+        User user = currentUserProvider.getAuthenticatedUser();
+
+        reply.setPost(post);
+        reply.setUser(user);
+        reply.setParentComment(parentComment);
+        Comment savedReply = commentRepository.save(reply);
+        
+        // Send notification to parent comment owner about new reply
+        notificationService.createReplyNotification(user, parentComment.getUser(), parentComment, savedReply);
+        
+        return savedReply;
     }
 
     @Override
@@ -75,9 +107,16 @@ public class CommentServiceImpl implements CommentService {
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN') or @commentOwnershipEvaluator.isOwner(authentication, #id)")
     public void deleteComment(Long id) {
         Comment comment = commentRepository.findById(id).orElseThrow(() -> new CommentNotFoundException(id));
+        User user = currentUserProvider.getAuthenticatedUser();
 
         comment.setDeletedDate(LocalDateTime.now());
         commentRepository.save(comment);
+        
+        // Send notification if comment was deleted by admin/moderator (not the owner)
+        if (!user.getName().equals(comment.getUser().getName()) && 
+            (user.isAdmin() || user.isModerator())) {
+            notificationService.createCommentDeletionNotification(user, comment.getUser(), comment);
+        }
     }
 
     @Override
@@ -124,6 +163,8 @@ public class CommentServiceImpl implements CommentService {
                 if ("LIKE".equals(reactionType)) {
                     comment.setLikes(comment.getLikes() + 1);
                     comment.setDislikes(comment.getDislikes() - 1);
+                    // Send notification for new like
+                    notificationService.createLikeNotification(user, comment.getUser(), comment);
                 } else if ("DISLIKE".equals(reactionType)) {
                     comment.setDislikes(comment.getDislikes() + 1);
                     comment.setLikes(comment.getLikes() - 1);
@@ -141,6 +182,8 @@ public class CommentServiceImpl implements CommentService {
             // Update comment counts
             if ("LIKE".equals(reactionType)) {
                 comment.setLikes(comment.getLikes() + 1);
+                // Send notification for new like
+                notificationService.createLikeNotification(user, comment.getUser(), comment);
             } else if ("DISLIKE".equals(reactionType)) {
                 comment.setDislikes(comment.getDislikes() + 1);
             }

@@ -21,6 +21,11 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
@@ -43,10 +48,13 @@ public class SecurityConfig {
 
         return http
                 .csrf(customizer -> customizer.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(request -> request
-                        .requestMatchers("/register", "/login", "/posts", "/posts/*/comments", "/posts/*/comments/*")
+                        .requestMatchers("/register", "/login", "/posts", "/posts/*/comments", "/posts/*/comments/*", "/users/exists", "/ws/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/posts/*")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/users/*/profile")
                         .permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/posts/*")
                         .hasAnyRole("USER", "MODERATOR", "ADMIN") // Any authenticated user can attempt to delete a post, but service layer will check ownership
@@ -54,7 +62,6 @@ public class SecurityConfig {
                         .hasRole("ADMIN") // Only admins can access admin endpoints
                         .anyRequest()
                         .authenticated())
-                .httpBasic(Customizer.withDefaults())
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
@@ -92,5 +99,19 @@ public class SecurityConfig {
         DefaultMethodSecurityExpressionHandler expressionHandler = new DefaultMethodSecurityExpressionHandler();
         expressionHandler.setRoleHierarchy(roleHierarchy);
         return expressionHandler;
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:3000"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }

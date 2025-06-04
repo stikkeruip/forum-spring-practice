@@ -47,12 +47,15 @@ public class UserServiceImpl implements UserService {
             throw new UserNameExistsException(user.getName());
         }
 
-        return userRepository.save(new User(
-                user.getName(),
-                passwordEncoder.encode(user.getPassword()),
-                user.getCreatedDate(),
-                "USER")
-        );
+        User newUser = new User();
+        newUser.setName(user.getName());
+        newUser.setPassword(passwordEncoder.encode(user.getPassword()));
+        newUser.setCreatedDate(user.getCreatedDate());
+        newUser.setRole("USER");
+        newUser.setIsOnline(false);
+        newUser.setLastSeen(user.getCreatedDate());
+        
+        return userRepository.save(newUser);
     }
 
     @Override
@@ -61,7 +64,10 @@ public class UserServiceImpl implements UserService {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(user.getName(), user.getPassword())
             );
-            return jwtService.generateToken(user.getName());
+            // Fetch the user from database to get their role
+            User authenticatedUser = userRepository.findUserByName(user.getName())
+                    .orElseThrow(() -> new UserNotFoundException(user.getName()));
+            return jwtService.generateToken(user.getName(), authenticatedUser.getRole());
         } catch (AuthenticationException ex) {
             throw new IncorrectLoginException();
         }

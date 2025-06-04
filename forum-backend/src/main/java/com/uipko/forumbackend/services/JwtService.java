@@ -4,6 +4,8 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -17,11 +19,15 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
+    private static final Logger logger = LoggerFactory.getLogger(JwtService.class);
+
     @Value("${jwt.secret}")
     private String SECRET_KEY;
 
-    public String generateToken(String name) {
+    public String generateToken(String name, String role) {
+        logger.info("Generating JWT token for user: {} with role: {}", name, role);
         Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role);
 
         return Jwts.builder()
                 .claims()
@@ -58,14 +64,22 @@ public class JwtService {
 
     public boolean validateToken(String token, UserDetails userDetails) {
         final String userName = getUserName(token);
-        return (userName.equals(userDetails.getUsername()) && !isTokenExpired(token));
+        boolean isValid = (userName.equals(userDetails.getUsername()) && !isTokenExpired(token));
+        if (!isValid) {
+            logger.warn("Invalid token validation for user: {}", userDetails.getUsername());
+        }
+        return isValid;
     }
 
-    private boolean isTokenExpired(String token) {
+    public boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
 
     private Date extractExpiration(String token) {
         return extractClaims(token, Claims::getExpiration);
+    }
+
+    public String getRole(String token) {
+        return extractClaims(token, claims -> claims.get("role", String.class));
     }
 }

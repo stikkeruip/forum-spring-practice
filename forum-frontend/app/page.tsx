@@ -1,24 +1,37 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import ForumLayout from "@/components/forum-layout"
 import PostList from "@/components/post-list"
+import { useAuth } from "@/components/auth-provider"
 import { Post } from "@/lib/types"
-import { posts as mockPosts } from "@/lib/data"
 
-async function getPosts() {
+async function getPosts(token?: string | null): Promise<Post[]> {
   try {
     // Create an AbortController with a timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-    const response = await fetch('http://localhost:8080/posts', { 
+    // Include authentication headers if token is available
+    const headers: HeadersInit = {
+      'Cache-Control': 'no-store'
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch('/api/posts', { 
       cache: 'no-store',
-      signal: controller.signal
+      signal: controller.signal,
+      headers
     });
 
     // Clear the timeout
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error('Failed to fetch posts');
+      throw new Error(`Failed to fetch posts: ${response.status} ${response.statusText}`);
     }
     const data = await response.json();
 
@@ -34,7 +47,11 @@ async function getPosts() {
       },
       date: new Date(post.createdDate).toLocaleDateString(),
       likes: post.likeCount,
+      dislikes: post.dislikeCount,
       comments: post.commentCount,
+      userReaction: post.userReaction, // Map the user's reaction state
+      deletedDate: post.deletedDate,
+      deletedBy: post.deletedBy,
     }));
   } catch (error) {
     console.error('Error fetching posts:', error);
@@ -46,32 +63,72 @@ async function getPosts() {
       console.error('Network error: Make sure the backend server is running at http://localhost:8080');
     }
 
-    console.log('Falling back to mock data...');
-    // Return mock data as fallback
-    return mockPosts;
+    // Return empty array instead of mock data
+    return [];
   }
 }
 
-export default async function Home() {
-  // Track if we're using mock data
-  let usingMockData = false;
+export default function Home() {
+  const { token, isLoading: authLoading } = useAuth()
+  const [isCreating, setIsCreating] = useState(false)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Get posts with fallback to mock data
-  const posts: Post[] = await getPosts().then(result => {
-    // If the result exactly matches mockPosts, we're using mock data
-    usingMockData = result === mockPosts;
-    return result;
-  });
+  // Load posts after auth finishes loading
+  useEffect(() => {
+    // Don't fetch posts until auth has finished loading
+    if (authLoading) return
+    
+    setLoading(true)
+    getPosts(token).then(result => {
+      // Sort posts by date (newest first)
+      const sortedPosts = result.sort((a, b) => {
+        const dateA = new Date(a.date)
+        const dateB = new Date(b.date)
+        return dateB.getTime() - dateA.getTime()
+      })
+      
+      setPosts(sortedPosts)
+      setError(null)
+    }).catch(err => {
+      setError('Failed to load posts. Please check your connection and try again.')
+      console.error('Error loading posts:', err)
+    }).finally(() => {
+      setLoading(false)
+    })
+  }, [token, authLoading])
+
+  // Handle new post creation
+  const handlePostCreated = (newPost: Post) => {
+    setPosts(prevPosts => [newPost, ...prevPosts])
+  }
+
+  // Handle post deletion
+  const handlePostDeleted = (postId: string) => {
+    setPosts(prevPosts => prevPosts.filter(post => post.id !== postId))
+  }
+
 
   return (
-    <ForumLayout>
-      {usingMockData && (
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
-          <p className="font-bold">Note</p>
-          <p>Unable to connect to the backend server. Showing mock data instead.</p>
+    <ForumLayout isCreating={isCreating} setIsCreating={setIsCreating}>
+      {loading && (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
+          <span className="ml-2 text-muted-foreground">Loading posts...</span>
         </div>
       )}
-      <PostList posts={posts} />
+      
+      {error && (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+          <p className="font-bold">Error</p>
+          <p>{error}</p>
+        </div>
+      )}
+      
+      {!loading && !error && (
+        <PostList posts={posts} isCreating={isCreating} setIsCreating={setIsCreating} onPostCreated={handlePostCreated} onPostDeleted={handlePostDeleted} />
+      )}
     </ForumLayout>
   )
 }

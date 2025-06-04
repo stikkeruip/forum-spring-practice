@@ -1,10 +1,13 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { AuthProvider } from '@/components/auth-provider'
+import { WebSocketProvider } from '@/components/websocket-provider'
+import { WebSocketFallback } from '@/components/websocket-fallback'
+import { Toaster } from '@/components/ui/toaster'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: 'Forum App',
+  description: 'A modern forum application',
 }
 
 export default function RootLayout({
@@ -14,7 +17,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          <WebSocketProvider>
+            <WebSocketFallback>
+              {children}
+              <Toaster />
+            </WebSocketFallback>
+          </WebSocketProvider>
+        </AuthProvider>
+      </body>
     </html>
   )
 }

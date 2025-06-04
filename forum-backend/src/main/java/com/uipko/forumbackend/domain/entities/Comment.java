@@ -11,8 +11,8 @@ import java.util.Set;
 @NoArgsConstructor
 @Getter
 @Setter
-@EqualsAndHashCode(exclude = {"reactions"})
-@ToString(exclude = {"reactions"})
+@EqualsAndHashCode(exclude = {"reactions", "parentComment", "replies"})
+@ToString(exclude = {"reactions", "parentComment", "replies"})
 @Table(name = "comments")
 @Entity
 public class Comment {
@@ -49,4 +49,11 @@ public class Comment {
 
     @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<CommentReaction> reactions = new HashSet<>();
+
+    @ManyToOne
+    @JoinColumn(name = "parent_comment_id")
+    private Comment parentComment;
+
+    @OneToMany(mappedBy = "parentComment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Comment> replies = new HashSet<>();
 }

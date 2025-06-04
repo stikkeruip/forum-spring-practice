@@ -16,4 +16,5 @@ public class UserProfileResponseDto {
     private String username;
     private LocalDateTime createdDate;
     private List<PostResponseDto> posts;
+    private List<PostResponseDto> deletedPosts;
 }

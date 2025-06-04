@@ -34,6 +34,10 @@ public class Post {
     @Column(name = "deleted_date")
     private LocalDateTime deletedDate;
 
+    @ManyToOne
+    @JoinColumn(name = "deleted_by")
+    private User deletedBy;
+
     @Column(name = "title", nullable = false)
     private String title;
 

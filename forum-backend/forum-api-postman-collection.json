@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Forum API",
-    "description": "API collection for the Forum Spring Boot application with role-based authorization.\n\nThis API implements soft deletion for posts and comments. Deleted posts are only accessible to the post owner, admins, and moderators. The API includes permission checks to ensure proper access control.\n\nNOTE: The DELETE endpoint for comments is documented in this collection but needs to be implemented in the CommentController class.",
+    "description": "API collection for the Forum Spring Boot application with role-based authorization.\n\nThis API implements soft deletion for posts and comments. Deleted posts are only accessible to the post owner, admins, and moderators. The API includes permission checks to ensure proper access control.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -266,6 +266,64 @@
           ]
         },
         {
+          "name": "Check Username Existence",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/exists?username=testuser",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "exists"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "testuser"
+                }
+              ]
+            },
+            "description": "Check if a username already exists in the system. Useful for registration validation."
+          },
+          "response": [
+            {
+              "name": "Username Exists",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users/exists?username=testuser",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "exists"
+                  ],
+                  "query": [
+                    {
+                      "key": "username",
+                      "value": "testuser"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"exists\": true\n}"
+            }
+          ]
+        },
+        {
           "name": "Get User Profile",
           "request": {
             "method": "GET",
@@ -315,7 +373,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"username\": \"testuser\",\n  \"createdDate\": \"2023-01-01T00:00:00\",\n  \"posts\": [\n    {\n      \"id\": 1,\n      \"title\": \"Sample Post\",\n      \"content\": \"This is a sample post content\",\n      \"createdDate\": \"2023-01-01T00:00:00\"\n    }\n  ]\n}"
+              "body": "{\n  \"username\": \"testuser\",\n  \"createdDate\": \"2023-01-01T00:00:00\",\n  \"posts\": [\n    {\n      \"postId\": 1,\n      \"owner\": \"testuser\",\n      \"title\": \"Sample Post\",\n      \"content\": \"This is a sample post content\",\n      \"commentCount\": 2,\n      \"likeCount\": 5,\n      \"dislikeCount\": 1,\n      \"createdDate\": \"2023-05-15T10:30:00\",\n      \"updatedDate\": \"2023-05-15T10:30:00\",\n      \"deletedDate\": null,\n      \"deletedBy\": null\n    }\n  ],\n  \"deletedPosts\": [\n    {\n      \"postId\": 2,\n      \"owner\": \"testuser\",\n      \"title\": \"Deleted Post\",\n      \"content\": \"This post was deleted\",\n      \"commentCount\": 0,\n      \"likeCount\": 2,\n      \"dislikeCount\": 0,\n      \"createdDate\": \"2023-05-10T10:30:00\",\n      \"updatedDate\": \"2023-05-10T10:30:00\",\n      \"deletedDate\": \"2023-05-20T15:45:00\",\n      \"deletedBy\": \"testuser\"\n    }\n  ]\n}"
             }
           ]
         }
@@ -365,7 +423,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "[\n  {\n    \"postId\": 1,\n    \"owner\": \"testuser\",\n    \"title\": \"First Post\",\n    \"content\": \"This is my first post content\",\n    \"commentCount\": 2,\n    \"likeCount\": 5,\n    \"dislikeCount\": 1,\n    \"createdDate\": \"2023-05-15T10:30:00\",\n    \"updatedDate\": \"2023-05-15T10:30:00\",\n    \"deletedDate\": null\n  },\n  {\n    \"postId\": 2,\n    \"owner\": \"anotheruser\",\n    \"title\": \"Second Post\",\n    \"content\": \"This is another post content\",\n    \"commentCount\": 0,\n    \"likeCount\": 3,\n    \"dislikeCount\": 0,\n    \"createdDate\": \"2023-05-16T14:20:00\",\n    \"updatedDate\": \"2023-05-16T14:20:00\",\n    \"deletedDate\": null\n  }\n]"
+              "body": "[\n  {\n    \"postId\": 1,\n    \"owner\": \"testuser\",\n    \"title\": \"First Post\",\n    \"content\": \"This is my first post content\",\n    \"commentCount\": 2,\n    \"likeCount\": 5,\n    \"dislikeCount\": 1,\n    \"createdDate\": \"2023-05-15T10:30:00\",\n    \"updatedDate\": \"2023-05-15T10:30:00\",\n    \"deletedDate\": null,\n    \"deletedBy\": null\n  },\n  {\n    \"postId\": 2,\n    \"owner\": \"anotheruser\",\n    \"title\": \"Second Post\",\n    \"content\": \"This is another post content\",\n    \"commentCount\": 0,\n    \"likeCount\": 3,\n    \"dislikeCount\": 0,\n    \"createdDate\": \"2023-05-16T14:20:00\",\n    \"updatedDate\": \"2023-05-16T14:20:00\",\n    \"deletedDate\": null,\n    \"deletedBy\": null\n  }\n]"
             }
           ]
         },
@@ -411,7 +469,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"postId\": 1,\n  \"owner\": \"testuser\",\n  \"title\": \"First Post\",\n  \"content\": \"This is my first post content\",\n  \"commentCount\": 2,\n  \"likeCount\": 5,\n  \"dislikeCount\": 1,\n  \"createdDate\": \"2023-05-15T10:30:00\",\n  \"updatedDate\": \"2023-05-15T10:30:00\",\n  \"deletedDate\": null\n}"
+              "body": "{\n  \"postId\": 1,\n  \"owner\": \"testuser\",\n  \"title\": \"First Post\",\n  \"content\": \"This is my first post content\",\n  \"commentCount\": 2,\n  \"likeCount\": 5,\n  \"dislikeCount\": 1,\n  \"createdDate\": \"2023-05-15T10:30:00\",\n  \"updatedDate\": \"2023-05-15T10:30:00\",\n  \"deletedDate\": null,\n  \"deletedBy\": null\n}"
             }
           ]
         },
@@ -555,7 +613,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"postId\": 1,\n  \"owner\": \"testuser\",\n  \"title\": \"First Post\",\n  \"content\": \"This is my first post content\",\n  \"commentCount\": 2,\n  \"likeCount\": 6,\n  \"dislikeCount\": 1,\n  \"createdDate\": \"2023-05-15T10:30:00\",\n  \"updatedDate\": \"2023-05-15T10:30:00\",\n  \"deletedDate\": null\n}"
+              "body": "{\n  \"postId\": 1,\n  \"owner\": \"testuser\",\n  \"title\": \"First Post\",\n  \"content\": \"This is my first post content\",\n  \"commentCount\": 2,\n  \"likeCount\": 6,\n  \"dislikeCount\": 1,\n  \"createdDate\": \"2023-05-15T10:30:00\",\n  \"updatedDate\": \"2023-05-15T10:30:00\",\n  \"deletedDate\": null,\n  \"deletedBy\": null\n}"
             }
           ]
         },
@@ -600,6 +658,58 @@
                   "path": [
                     "posts",
                     "1"
+                  ]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "header": []
+            }
+          ]
+        },
+        {
+          "name": "Restore Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/posts/1/restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts",
+                "1",
+                "restore"
+              ]
+            },
+            "description": "Restore a deleted post (requires authentication). Regular users can only restore posts they deleted themselves (cannot restore if deleted by admin/moderator). Admins and moderators can restore any deleted post. If the post is not deleted, the endpoint will return an error."
+          },
+          "response": [
+            {
+              "name": "Successful Post Restoration",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{authToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/posts/1/restore",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "posts",
+                    "1",
+                    "restore"
                   ]
                 }
               },
@@ -661,7 +771,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "[\n  {\n    \"postId\": 1,\n    \"owner\": \"testuser\",\n    \"title\": \"Deleted Post\",\n    \"content\": \"This is a deleted post content\",\n    \"commentCount\": 0,\n    \"likeCount\": 0,\n    \"dislikeCount\": 0,\n    \"createdDate\": \"2023-05-15T10:30:00\",\n    \"updatedDate\": \"2023-05-15T10:30:00\",\n    \"deletedDate\": \"2023-05-20T15:45:00\"\n  }\n]"
+              "body": "[\n  {\n    \"postId\": 1,\n    \"owner\": \"testuser\",\n    \"title\": \"Deleted Post\",\n    \"content\": \"This is a deleted post content\",\n    \"commentCount\": 0,\n    \"likeCount\": 0,\n    \"dislikeCount\": 0,\n    \"createdDate\": \"2023-05-15T10:30:00\",\n    \"updatedDate\": \"2023-05-15T10:30:00\",\n    \"deletedDate\": \"2023-05-20T15:45:00\",\n    \"deletedBy\": \"admin\"\n  }\n]"
             }
           ]
         },

@@ -12,6 +12,7 @@ import com.uipko.forumbackend.repositories.CommentRepository;
 import com.uipko.forumbackend.repositories.PostReactionRepository;
 import com.uipko.forumbackend.repositories.PostRepository;
 import com.uipko.forumbackend.security.util.CurrentUserProvider;
+import com.uipko.forumbackend.services.NotificationService;
 import com.uipko.forumbackend.services.PostService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
@@ -27,12 +28,16 @@ public class PostServiceImpl implements PostService {
     private final PostReactionRepository postReactionRepository;
     private final CommentRepository commentRepository;
     private final CurrentUserProvider currentUserProvider;
+    private final NotificationService notificationService;
 
-    public PostServiceImpl(PostRepository postRepository, PostReactionRepository postReactionRepository, CommentRepository commentRepository, CurrentUserProvider currentUserProvider) {
+    public PostServiceImpl(PostRepository postRepository, PostReactionRepository postReactionRepository, 
+                          CommentRepository commentRepository, CurrentUserProvider currentUserProvider,
+                          NotificationService notificationService) {
         this.postRepository = postRepository;
         this.postReactionRepository = postReactionRepository;
         this.commentRepository = commentRepository;
         this.currentUserProvider = currentUserProvider;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -93,9 +98,18 @@ public class PostServiceImpl implements PostService {
 
     @Transactional
     @Override
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN') or @postOwnershipEvaluator.isOwner(authentication, #id)")
     public void deletePost(Long id) {
         Post post = postRepository.findById(id).orElseThrow(() -> new PostNotFoundException(id));
+        
+        User currentUser = currentUserProvider.getAuthenticatedUser();
+        
+        // Check authorization: admin/moderator can delete any post, users can only delete their own
+        boolean isOwner = post.getUser().getName().equals(currentUser.getName());
+        boolean isAdminOrModerator = currentUser.isAdmin() || currentUser.isModerator();
+        
+        if (!isOwner && !isAdminOrModerator) {
+            throw new PostDeleteUnauthorizedException("You are not authorized to delete this post");
+        }
 
         // Check if post is already deleted
         if (post.getDeletedDate() != null) {
@@ -109,12 +123,24 @@ public class PostServiceImpl implements PostService {
 
         // Soft delete the post
         post.setDeletedDate(now);
+        post.setDeletedBy(user);
         postRepository.save(post);
+
+        // Send notification if post was deleted by admin/moderator (not the owner)
+        if (!user.getName().equals(post.getUser().getName()) && 
+            (user.isAdmin() || user.isModerator())) {
+            notificationService.createPostDeletionNotification(user, post.getUser(), post);
+        }
 
         // Soft delete all comments associated with this post
         List<Comment> comments = commentRepository.getCommentsByPostIdAndDeletedDateIsNull(id);
         for (Comment comment : comments) {
             comment.setDeletedDate(now);
+            // Send notification if comment was deleted by admin/moderator (not the owner)
+            if (!user.getName().equals(comment.getUser().getName()) && 
+                (user.isAdmin() || user.isModerator())) {
+                notificationService.createCommentDeletionNotification(user, comment.getUser(), comment);
+            }
         }
         commentRepository.saveAll(comments);
     }
@@ -132,7 +158,7 @@ public class PostServiceImpl implements PostService {
         }
 
         // For other users, return only non-deleted posts
-        return postRepository.findPostsByUserAndDeletedDateIsNull(user);
+        return postRepository.findPostsByUserAndDeletedDateIsNullOrderByCreatedDateDescIdDesc(user);
     }
 
     @Override
@@ -141,21 +167,18 @@ public class PostServiceImpl implements PostService {
 
         // If user is anonymous, return only non-deleted posts
         if ("anonymousUser".equals(currentUser.getName())) {
-            return postRepository.findAllByDeletedDateIsNull();
+            return postRepository.findAllByDeletedDateIsNullOrderByCreatedDateDescIdDesc();
         }
 
-        // If user is admin or moderator, return all posts including deleted ones
+        // For admin or moderator, return only non-deleted posts on home page
+        // (They can access deleted posts via /posts/deleted endpoint)
         if (currentUser.isAdmin() || currentUser.isModerator()) {
-            return postRepository.findAll();
+            return postRepository.findAllByDeletedDateIsNullOrderByCreatedDateDescIdDesc();
         }
 
-        // For regular users, return all non-deleted posts and their own deleted posts
-        List<Post> nonDeletedPosts = postRepository.findAllByDeletedDateIsNull();
-        List<Post> ownDeletedPosts = postRepository.findAllByUserAndDeletedDateIsNotNull(currentUser);
-
-        // Combine the lists
-        nonDeletedPosts.addAll(ownDeletedPosts);
-        return nonDeletedPosts;
+        // For regular users, return only non-deleted posts on home page
+        // (Their own deleted posts are visible on their profile page)
+        return postRepository.findAllByDeletedDateIsNullOrderByCreatedDateDescIdDesc();
     }
 
     @Override
@@ -169,11 +192,11 @@ public class PostServiceImpl implements PostService {
 
         // Admins and moderators can see all deleted posts
         if (currentUser.isAdmin() || currentUser.isModerator()) {
-            return postRepository.findAllByDeletedDateIsNotNull();
+            return postRepository.findAllByDeletedDateIsNotNullOrderByCreatedDateDescIdDesc();
         }
 
         // Regular users can only see their own deleted posts
-        return postRepository.findAllByUserAndDeletedDateIsNotNull(currentUser);
+        return postRepository.findAllByUserAndDeletedDateIsNotNullOrderByCreatedDateDescIdDesc(currentUser);
     }
 
     @Override
@@ -238,6 +261,8 @@ public class PostServiceImpl implements PostService {
                 if ("LIKE".equals(reactionType)) {
                     post.setLikes(post.getLikes() + 1);
                     post.setDislikes(post.getDislikes() - 1);
+                    // Send notification for new like
+                    notificationService.createLikeNotification(user, post.getUser(), post);
                 } else if ("DISLIKE".equals(reactionType)) {
                     post.setDislikes(post.getDislikes() + 1);
                     post.setLikes(post.getLikes() - 1);
@@ -255,11 +280,58 @@ public class PostServiceImpl implements PostService {
             // Update post counts
             if ("LIKE".equals(reactionType)) {
                 post.setLikes(post.getLikes() + 1);
+                // Send notification for new like
+                notificationService.createLikeNotification(user, post.getUser(), post);
             } else if ("DISLIKE".equals(reactionType)) {
                 post.setDislikes(post.getDislikes() + 1);
             }
         }
 
         return postRepository.save(post);
+    }
+
+    @Transactional
+    @Override
+    public void restorePost(Long id) {
+        Post post = postRepository.findById(id).orElseThrow(() -> new PostNotFoundException(id));
+
+        // Check if post is actually deleted
+        if (post.getDeletedDate() == null) {
+            throw new IllegalStateException("Post is not deleted");
+        }
+
+        User currentUser = currentUserProvider.getAuthenticatedUser();
+
+        // Check authorization
+        boolean isOwner = post.getUser().getName().equals(currentUser.getName());
+        boolean isAdminOrModerator = currentUser.isAdmin() || currentUser.isModerator();
+
+        if (isOwner && post.getDeletedBy() != null && !post.getDeletedBy().getName().equals(currentUser.getName())) {
+            // User can't restore if admin/moderator deleted it
+            throw new PostDeleteUnauthorizedException("You cannot restore a post deleted by an administrator or moderator");
+        } else if (!isOwner && !isAdminOrModerator) {
+            // Non-owners need admin/moderator role
+            throw new PostDeleteUnauthorizedException("You are not authorized to restore this post");
+        }
+
+        // Restore the post
+        post.setDeletedDate(null);
+        post.setDeletedBy(null);
+        postRepository.save(post);
+
+        // Send notification if post was restored by admin/moderator (not the owner)
+        if (!currentUser.getName().equals(post.getUser().getName()) && 
+            (currentUser.isAdmin() || currentUser.isModerator())) {
+            notificationService.createPostRestorationNotification(currentUser, post.getUser(), post);
+        }
+
+        // Restore all comments associated with this post
+        List<Comment> comments = commentRepository.findAllByPost_Id(id);
+        for (Comment comment : comments) {
+            if (comment.getDeletedDate() != null) {
+                comment.setDeletedDate(null);
+            }
+        }
+        commentRepository.saveAll(comments);
     }
 }

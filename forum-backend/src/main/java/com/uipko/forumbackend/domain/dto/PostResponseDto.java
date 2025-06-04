@@ -10,8 +10,10 @@ public record PostResponseDto(
         Long commentCount,
         Long likeCount,
         Long dislikeCount,
+        String userReaction, // "LIKE", "DISLIKE", or null
         LocalDateTime createdDate,
         LocalDateTime updatedDate,
-        LocalDateTime deletedDate
+        LocalDateTime deletedDate,
+        String deletedBy
 ) {
 }
