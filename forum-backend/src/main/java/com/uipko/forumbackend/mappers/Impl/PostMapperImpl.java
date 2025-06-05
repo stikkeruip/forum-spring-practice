@@ -40,6 +40,7 @@ public class PostMapperImpl implements PostMapper {
                 postCreateDto.content(),
                 0,
                 0,
+                new HashSet<>(),
                 new HashSet<>()
         );
     }

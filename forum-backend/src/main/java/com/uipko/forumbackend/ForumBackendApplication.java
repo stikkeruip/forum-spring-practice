@@ -2,10 +2,14 @@ package com.uipko.forumbackend;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-@SpringBootApplication()
+@SpringBootApplication(exclude = {
+    JpaRepositoriesAutoConfiguration.class,
+    RedisRepositoriesAutoConfiguration.class
+})
 @EnableScheduling
 public class ForumBackendApplication {
 

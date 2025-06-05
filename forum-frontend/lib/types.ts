@@ -58,8 +58,8 @@ export interface UserProfile {
 export interface OnlineUser {
   username: string
   createdDate: string
-  posts: ProfilePost[]
-  deletedPosts: ProfilePost[]
+  isOnline: boolean
+  lastSeen?: string
 }
 
 export interface UserStatus {
@@ -74,7 +74,7 @@ export interface OnlineCount {
 export interface Notification {
   id: number
   actorUsername: string
-  type: 'POST_LIKED' | 'COMMENT_LIKED' | 'POST_COMMENTED' | 'COMMENT_REPLIED' | 'POST_DELETED_BY_MODERATOR' | 'COMMENT_DELETED_BY_MODERATOR'
+  type: 'POST_LIKED' | 'COMMENT_LIKED' | 'POST_COMMENTED' | 'COMMENT_REPLIED' | 'POST_DELETED_BY_MODERATOR' | 'COMMENT_DELETED_BY_MODERATOR' | 'POST_RESTORED_BY_MODERATOR' | 'FRIEND_REQUEST_SENT' | 'FRIEND_REQUEST_ACCEPTED' | 'FRIEND_REQUEST_DECLINED'
   targetPostId?: number
   targetCommentId?: number
   message: string
@@ -84,4 +84,26 @@ export interface Notification {
 
 export interface NotificationCount {
   count: number
+}
+
+// Friend System Types
+export interface Friend {
+  username: string
+  createdDate: string
+  isOnline: boolean
+  lastSeen: string
+  friendshipDate: string
+}
+
+export interface PendingFriendRequest {
+  friendshipId: number
+  requesterUsername: string
+  requestDate: string
+  isOnline: boolean
+}
+
+export interface FriendshipStatus {
+  status: 'NONE' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'ACCEPTED' | 'DECLINED' | 'BLOCKED' | 'SELF'
+  friendshipId?: number | null
+  canSendRequest: boolean
 }

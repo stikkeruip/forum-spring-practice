@@ -5,6 +5,7 @@ import com.uipko.forumbackend.domain.entities.User;
 import com.uipko.forumbackend.mappers.UserMapper;
 import com.uipko.forumbackend.repositories.UserRepository;
 import com.uipko.forumbackend.services.OnlineActivityService;
+import com.uipko.forumbackend.services.RedisMessagingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -12,11 +13,16 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.annotation.PreDestroy;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,14 +33,21 @@ public class OnlineActivityServiceImpl implements OnlineActivityService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final SimpMessagingTemplate messagingTemplate;
+    private final RedisMessagingService redisMessagingService;
     
     // Users are considered offline if no activity for 5 minutes
     private static final int OFFLINE_THRESHOLD_MINUTES = 5;
+    private static final int OFFLINE_GRACE_PERIOD_SECONDS = 3; // Grace period before marking offline
     
     // Performance optimization: Batching and rate limiting
     private final Set<String> pendingStatusUpdates = new ConcurrentSkipListSet<>();
     private final ConcurrentHashMap<String, LocalDateTime> lastHeartbeat = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, LocalDateTime> lastStatusBroadcast = new ConcurrentHashMap<>();
+    
+    // Session tracking
+    private final ConcurrentHashMap<String, Set<String>> userSessions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ScheduledFuture<?>> offlineTimers = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(2);
     
     // Rate limiting constants
     private static final int HEARTBEAT_THROTTLE_SECONDS = 30; // Minimum 30s between heartbeat updates
@@ -43,13 +56,25 @@ public class OnlineActivityServiceImpl implements OnlineActivityService {
 
     @Override
     @Transactional
-    public void setUserOnline(String username) {
+    public void setUserOnline(String username, String sessionId) {
+        // Cancel any pending offline timer for this user
+        ScheduledFuture<?> timer = offlineTimers.remove(username);
+        if (timer != null) {
+            timer.cancel(false);
+            log.debug("Cancelled offline timer for user {}", username);
+        }
+        
+        // Add session to user's sessions
+        userSessions.computeIfAbsent(username, k -> ConcurrentHashMap.newKeySet()).add(sessionId);
+        log.debug("User {} connected with session {}, total sessions: {}", 
+                username, sessionId, userSessions.get(username).size());
+        
         User user = userRepository.findByName(username).orElse(null);
         if (user != null) {
             LocalDateTime now = LocalDateTime.now();
             boolean shouldUpdate = shouldUpdateUserActivity(username, now);
             
-            if (shouldUpdate) {
+            if (shouldUpdate || !Boolean.TRUE.equals(user.getIsOnline())) {
                 user.setIsOnline(true);
                 user.setLastSeen(now);
                 userRepository.save(user);
@@ -58,6 +83,9 @@ public class OnlineActivityServiceImpl implements OnlineActivityService {
                 
                 // Add to pending status updates for batched broadcast
                 pendingStatusUpdates.add(username + ":online");
+                
+                // Update Redis online status
+                redisMessagingService.setUserOnline(username);
                 
                 // Throttled broadcast
                 if (shouldBroadcastStatus(username, now)) {
@@ -75,14 +103,59 @@ public class OnlineActivityServiceImpl implements OnlineActivityService {
 
     @Override
     @Transactional
-    public void setUserOffline(String username) {
+    public void setUserOffline(String username, String sessionId) {
+        Set<String> sessions = userSessions.get(username);
+        if (sessions != null) {
+            sessions.remove(sessionId);
+            log.debug("User {} disconnected session {}, remaining sessions: {}", 
+                    username, sessionId, sessions.size());
+            
+            // If user still has active sessions, don't mark them offline
+            if (!sessions.isEmpty()) {
+                log.debug("User {} still has {} active sessions, not marking offline", 
+                        username, sessions.size());
+                return;
+            }
+            
+            // Remove empty session set
+            userSessions.remove(username);
+        }
+        
+        // Cancel any existing timer
+        ScheduledFuture<?> existingTimer = offlineTimers.get(username);
+        if (existingTimer != null) {
+            existingTimer.cancel(false);
+        }
+        
+        // Schedule offline status after grace period
+        log.debug("Scheduling offline status for user {} after {} seconds grace period", 
+                username, OFFLINE_GRACE_PERIOD_SECONDS);
+        
+        ScheduledFuture<?> timer = scheduledExecutor.schedule(() -> {
+            // Check again if user reconnected during grace period
+            Set<String> currentSessions = userSessions.get(username);
+            if (currentSessions == null || currentSessions.isEmpty()) {
+                executeSetUserOffline(username);
+                offlineTimers.remove(username);
+            } else {
+                log.debug("User {} reconnected during grace period, cancelling offline", username);
+            }
+        }, OFFLINE_GRACE_PERIOD_SECONDS, TimeUnit.SECONDS);
+        
+        offlineTimers.put(username, timer);
+    }
+    
+    private void executeSetUserOffline(String username) {
         User user = userRepository.findByName(username).orElse(null);
         if (user != null) {
             user.setIsOnline(false);
             user.setLastSeen(LocalDateTime.now());
             userRepository.save(user);
             
-            log.info("User {} set as offline", username);
+            log.info("User {} set as offline after grace period", username);
+            
+            // Update Redis offline status
+            redisMessagingService.setUserOffline(username);
             
             // Broadcast user offline status to all connected clients
             broadcastUserStatusChange(username, false);
@@ -200,6 +273,21 @@ public class OnlineActivityServiceImpl implements OnlineActivityService {
         lastHeartbeat.entrySet().removeIf(entry -> entry.getValue().isBefore(cutoffTime));
         lastStatusBroadcast.entrySet().removeIf(entry -> entry.getValue().isBefore(cutoffTime));
         
+        // Clean up any orphaned session data
+        userSessions.entrySet().removeIf(entry -> {
+            String username = entry.getKey();
+            boolean isOffline = !isUserOnline(username);
+            if (isOffline) {
+                // Cancel any associated timers
+                ScheduledFuture<?> timer = offlineTimers.remove(username);
+                if (timer != null) {
+                    timer.cancel(false);
+                }
+                return true;
+            }
+            return false;
+        });
+        
         log.debug("Cleaned up old tracking data");
     }
     
@@ -287,6 +375,25 @@ public class OnlineActivityServiceImpl implements OnlineActivityService {
         
         public OnlineCountDto(long count) {
             this.count = count;
+        }
+    }
+    
+    @PreDestroy
+    public void cleanup() {
+        log.info("Shutting down OnlineActivityService scheduled executor");
+        // Cancel all pending timers
+        offlineTimers.values().forEach(timer -> timer.cancel(false));
+        offlineTimers.clear();
+        
+        // Shutdown executor service
+        scheduledExecutor.shutdown();
+        try {
+            if (!scheduledExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                scheduledExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            scheduledExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 }

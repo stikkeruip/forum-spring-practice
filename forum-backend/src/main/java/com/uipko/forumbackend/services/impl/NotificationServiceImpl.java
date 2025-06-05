@@ -6,6 +6,7 @@ import com.uipko.forumbackend.domain.entities.*;
 import com.uipko.forumbackend.mappers.NotificationMapper;
 import com.uipko.forumbackend.repositories.NotificationRepository;
 import com.uipko.forumbackend.services.NotificationService;
+import com.uipko.forumbackend.services.RedisMessagingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -23,6 +24,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationMapper notificationMapper;
     private final WebSocketController webSocketController;
+    private final RedisMessagingService redisMessagingService;
     
     @Override
     @Transactional
@@ -197,6 +199,57 @@ public class NotificationServiceImpl implements NotificationService {
     }
     
     @Override
+    @Transactional
+    public void createFriendRequestNotification(User requester, User addressee) {
+        String message = String.format("%s sent you a friend request", requester.getName());
+        
+        Notification notification = Notification.builder()
+                .recipient(addressee)
+                .actor(requester)
+                .type(Notification.NotificationType.FRIEND_REQUEST_SENT)
+                .message(message)
+                .read(false)
+                .build();
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(notification);
+    }
+    
+    @Override
+    @Transactional
+    public void createFriendRequestAcceptedNotification(User accepter, User requester) {
+        String message = String.format("%s accepted your friend request", accepter.getName());
+        
+        Notification notification = Notification.builder()
+                .recipient(requester)
+                .actor(accepter)
+                .type(Notification.NotificationType.FRIEND_REQUEST_ACCEPTED)
+                .message(message)
+                .read(false)
+                .build();
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(notification);
+    }
+    
+    @Override
+    @Transactional
+    public void createFriendRequestDeclinedNotification(User decliner, User requester) {
+        String message = String.format("%s declined your friend request", decliner.getName());
+        
+        Notification notification = Notification.builder()
+                .recipient(requester)
+                .actor(decliner)
+                .type(Notification.NotificationType.FRIEND_REQUEST_DECLINED)
+                .message(message)
+                .read(false)
+                .build();
+        
+        notification = notificationRepository.save(notification);
+        sendRealTimeNotification(notification);
+    }
+    
+    @Override
     @Transactional(readOnly = true)
     public Page<NotificationResponseDto> getUserNotifications(String username, Pageable pageable) {
         return notificationRepository.findByRecipientNameOrderByCreatedDateDesc(username, pageable)
@@ -237,9 +290,17 @@ public class NotificationServiceImpl implements NotificationService {
     
     private void sendRealTimeNotification(Notification notification) {
         NotificationResponseDto dto = notificationMapper.toResponseDto(notification);
+        
+        // Send via WebSocket (existing)
         webSocketController.sendNotification(notification.getRecipient().getName(), dto);
         long unreadCount = notificationRepository.countUnreadByRecipientUsername(
                 notification.getRecipient().getName());
         webSocketController.sendUnreadCountUpdate(notification.getRecipient().getName(), unreadCount);
+        
+        // Publish to Redis for distributed real-time updates
+        redisMessagingService.publishNotification(notification);
+        
+        log.debug("Sent real-time notification to user: {} via WebSocket and Redis", 
+                notification.getRecipient().getName());
     }
 }

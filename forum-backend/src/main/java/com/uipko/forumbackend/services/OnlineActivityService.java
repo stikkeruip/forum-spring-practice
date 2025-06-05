@@ -9,12 +9,12 @@ public interface OnlineActivityService {
     /**
      * Mark user as online when they connect via WebSocket
      */
-    void setUserOnline(String username);
+    void setUserOnline(String username, String sessionId);
     
     /**
      * Mark user as offline when they disconnect from WebSocket
      */
-    void setUserOffline(String username);
+    void setUserOffline(String username, String sessionId);
     
     /**
      * Update user's last seen timestamp (heartbeat)

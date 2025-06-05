@@ -23,6 +23,12 @@ public interface NotificationService {
     
     void createPostRestorationNotification(User actor, User recipient, Post post);
     
+    void createFriendRequestNotification(User requester, User addressee);
+    
+    void createFriendRequestAcceptedNotification(User accepter, User requester);
+    
+    void createFriendRequestDeclinedNotification(User decliner, User requester);
+    
     Page<NotificationResponseDto> getUserNotifications(String username, Pageable pageable);
     
     long getUnreadCount(String username);

@@ -28,11 +28,12 @@ public class WebSocketController {
     public void handleWebSocketConnectListener(SessionConnectedEvent event) {
         SimpMessageHeaderAccessor headerAccessor = SimpMessageHeaderAccessor.wrap(event.getMessage());
         Principal user = headerAccessor.getUser();
+        String sessionId = headerAccessor.getSessionId();
         
-        if (user != null) {
+        if (user != null && sessionId != null) {
             String username = user.getName();
-            onlineActivityService.setUserOnline(username);
-            log.info("WebSocket connection established for user: {}", username);
+            onlineActivityService.setUserOnline(username, sessionId);
+            log.info("WebSocket connection established for user: {} with session: {}", username, sessionId);
         }
     }
 
@@ -40,11 +41,12 @@ public class WebSocketController {
     public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
         SimpMessageHeaderAccessor headerAccessor = SimpMessageHeaderAccessor.wrap(event.getMessage());
         Principal user = headerAccessor.getUser();
+        String sessionId = event.getSessionId();
         
-        if (user != null) {
+        if (user != null && sessionId != null) {
             String username = user.getName();
-            onlineActivityService.setUserOffline(username);
-            log.info("WebSocket connection closed for user: {}", username);
+            onlineActivityService.setUserOffline(username, sessionId);
+            log.info("WebSocket connection closed for user: {} with session: {}", username, sessionId);
         }
     }
 
@@ -97,6 +99,25 @@ public class WebSocketController {
         
         public UnreadCountResponse(long count) {
             this.count = count;
+        }
+    }
+    
+    public void sendFriendshipUpdate(String username, String type, String friendUsername) {
+        FriendshipUpdateMessage message = new FriendshipUpdateMessage(type, friendUsername);
+        messagingTemplate.convertAndSendToUser(username, "/queue/friendship-updates", message);
+    }
+    
+    public void sendFriendsListUpdate(String username) {
+        messagingTemplate.convertAndSendToUser(username, "/queue/friends-list-update", "refresh");
+    }
+    
+    public static class FriendshipUpdateMessage {
+        public String type; // "request_sent", "request_received", "accepted", "declined", "removed"
+        public String friendUsername;
+        
+        public FriendshipUpdateMessage(String type, String friendUsername) {
+            this.type = type;
+            this.friendUsername = friendUsername;
         }
     }
 }

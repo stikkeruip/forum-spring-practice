@@ -6,6 +6,9 @@ import PostList from "@/components/post-list"
 import { useAuth } from "@/components/auth-provider"
 import { Post } from "@/lib/types"
 
+// Disable static generation for this page since it uses authentication
+export const dynamic = 'force-dynamic'
+
 async function getPosts(token?: string | null): Promise<Post[]> {
   try {
     // Create an AbortController with a timeout

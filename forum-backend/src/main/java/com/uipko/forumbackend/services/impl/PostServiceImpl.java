@@ -1,27 +1,39 @@
 package com.uipko.forumbackend.services.impl;
 
+import com.uipko.forumbackend.domain.dto.cache.CacheablePostDto;
 import com.uipko.forumbackend.domain.entities.Comment;
 import com.uipko.forumbackend.domain.entities.Post;
 import com.uipko.forumbackend.domain.entities.PostReaction;
 import com.uipko.forumbackend.domain.entities.User;
+import com.uipko.forumbackend.domain.events.PostEvent;
 import com.uipko.forumbackend.exceptions.PostContentEmptyException;
 import com.uipko.forumbackend.exceptions.PostDeleteUnauthorizedException;
 import com.uipko.forumbackend.exceptions.PostNotFoundException;
 import com.uipko.forumbackend.exceptions.PostTitleEmptyException;
+import com.uipko.forumbackend.mappers.CacheMapper;
 import com.uipko.forumbackend.repositories.CommentRepository;
 import com.uipko.forumbackend.repositories.PostReactionRepository;
 import com.uipko.forumbackend.repositories.PostRepository;
 import com.uipko.forumbackend.security.util.CurrentUserProvider;
 import com.uipko.forumbackend.services.NotificationService;
 import com.uipko.forumbackend.services.PostService;
+import com.uipko.forumbackend.services.RedisMessagingService;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Service
+@Slf4j
 public class PostServiceImpl implements PostService {
 
     private final PostRepository postRepository;
@@ -29,19 +41,30 @@ public class PostServiceImpl implements PostService {
     private final CommentRepository commentRepository;
     private final CurrentUserProvider currentUserProvider;
     private final NotificationService notificationService;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final ApplicationEventPublisher eventPublisher;
+    private final RedisMessagingService redisMessagingService;
+    private final CacheMapper cacheMapper;
 
     public PostServiceImpl(PostRepository postRepository, PostReactionRepository postReactionRepository, 
                           CommentRepository commentRepository, CurrentUserProvider currentUserProvider,
-                          NotificationService notificationService) {
+                          NotificationService notificationService, RedisTemplate<String, Object> redisTemplate,
+                          ApplicationEventPublisher eventPublisher, RedisMessagingService redisMessagingService,
+                          CacheMapper cacheMapper) {
         this.postRepository = postRepository;
         this.postReactionRepository = postReactionRepository;
         this.commentRepository = commentRepository;
         this.currentUserProvider = currentUserProvider;
         this.notificationService = notificationService;
+        this.redisTemplate = redisTemplate;
+        this.eventPublisher = eventPublisher;
+        this.redisMessagingService = redisMessagingService;
+        this.cacheMapper = cacheMapper;
     }
 
     @Transactional
     @Override
+    @CacheEvict(value = "posts", allEntries = true) // Clear all posts cache when new post is created
     public Post createPost(Post post) {
         if (post.getTitle() == null || post.getTitle().isBlank()) {
             throw new PostTitleEmptyException();
@@ -53,13 +76,59 @@ public class PostServiceImpl implements PostService {
         User user = currentUserProvider.getAuthenticatedUser();
         post.setUser(user);
 
-        return postRepository.save(post);
+        Post savedPost = postRepository.save(post);
+        
+        // Warm up the cache for the new post using safe DTO to prevent lazy loading issues
+        CacheablePostDto cacheablePost = cacheMapper.toDto(savedPost, 0); // New post has 0 comments
+        redisTemplate.opsForValue().set(
+            "posts::post:" + savedPost.getId(), 
+            cacheablePost, 
+            Duration.ofMinutes(15)
+        );
+        
+        // Publish event for real-time updates
+        PostEvent postEvent = PostEvent.created(savedPost.getId(), user.getName(), savedPost.getTitle());
+        eventPublisher.publishEvent(postEvent);
+        redisMessagingService.publishPostEvent(postEvent);
+        
+        log.info("Created new post with ID: {} by user: {}", savedPost.getId(), user.getName());
+        return savedPost;
     }
 
     @Override
     public Post getPost(Long id) {
+        String cacheKey = "posts::post:" + id;
+        
+        // Try to get from cache first
+        CacheablePostDto cachedDto = (CacheablePostDto) redisTemplate.opsForValue().get(cacheKey);
+        if (cachedDto != null) {
+            log.debug("Cache hit - retrieving post {} from cache", id);
+            // For cached posts, we still need to get the entity for business logic
+            // But we can verify it matches cached data
+            Post post = postRepository.findById(id).orElseThrow(() -> new PostNotFoundException(id));
+            checkPostAccess(post, id);
+            return post;
+        }
+        
+        log.debug("Cache miss - fetching post {} from database", id);
         Post post = postRepository.findById(id).orElseThrow(() -> new PostNotFoundException(id));
-
+        
+        checkPostAccess(post, id);
+        
+        // Get comment count for caching
+        Integer commentCount = commentRepository.countCommentsByPostIdAndDeletedDateIsNull(id);
+        
+        // Cache the DTO to prevent lazy loading issues
+        CacheablePostDto cacheablePost = cacheMapper.toDto(post, commentCount);
+        redisTemplate.opsForValue().set(cacheKey, cacheablePost, Duration.ofMinutes(15));
+        
+        // Cache post reaction counts for quick access
+        cachePostReactionCounts(post);
+        
+        return post;
+    }
+    
+    private void checkPostAccess(Post post, Long id) {
         // If post is deleted, check permissions
         if (post.getDeletedDate() != null) {
             User currentUser = currentUserProvider.getAuthenticatedUser();
@@ -78,11 +147,13 @@ public class PostServiceImpl implements PostService {
                 throw new PostNotFoundException(id);
             }
         }
-
-        return post;
     }
 
     @Override
+    @Caching(evict = {
+        @CacheEvict(value = "posts", key = "'post:' + #newPost.id"),
+        @CacheEvict(value = "posts", allEntries = true)
+    })
     public Post updatePost(Post newPost) {
         Long postId = newPost.getId();
         Post post = postRepository.findById(postId).orElseThrow(() -> new PostNotFoundException(postId));
@@ -93,11 +164,18 @@ public class PostServiceImpl implements PostService {
 
         post.setContent(newPost.getContent());
         post.setUpdatedDate(newPost.getUpdatedDate());
-        return postRepository.save(post);
+        Post updatedPost = postRepository.save(post);
+        
+        log.info("Updated post with ID: {}", postId);
+        return updatedPost;
     }
 
     @Transactional
     @Override
+    @Caching(evict = {
+        @CacheEvict(value = "posts", key = "'post:' + #id"),
+        @CacheEvict(value = "posts", allEntries = true)
+    })
     public void deletePost(Long id) {
         Post post = postRepository.findById(id).orElseThrow(() -> new PostNotFoundException(id));
         
@@ -126,6 +204,14 @@ public class PostServiceImpl implements PostService {
         post.setDeletedBy(user);
         postRepository.save(post);
 
+        // Remove from all relevant caches
+        evictPostCaches(id);
+
+        // Publish event for real-time updates
+        PostEvent deleteEvent = PostEvent.deleted(id, user.getName());
+        eventPublisher.publishEvent(deleteEvent);
+        redisMessagingService.publishPostEvent(deleteEvent);
+
         // Send notification if post was deleted by admin/moderator (not the owner)
         if (!user.getName().equals(post.getUser().getName()) && 
             (user.isAdmin() || user.isModerator())) {
@@ -143,6 +229,8 @@ public class PostServiceImpl implements PostService {
             }
         }
         commentRepository.saveAll(comments);
+        
+        log.info("Deleted post with ID: {} by user: {}", id, user.getName());
     }
 
     @Override
@@ -163,6 +251,34 @@ public class PostServiceImpl implements PostService {
 
     @Override
     public List<Post> getAllPosts() {
+        String cacheKey = "posts::all-posts";
+        
+        // Try to get from cache first
+        @SuppressWarnings("unchecked")
+        List<CacheablePostDto> cachedDtos = (List<CacheablePostDto>) redisTemplate.opsForValue().get(cacheKey);
+        if (cachedDtos != null) {
+            log.debug("Cache hit - retrieving all posts from cache");
+            // For cached posts, we still need to get entities for business logic
+            return getAllPostsFromDatabase();
+        }
+        
+        log.debug("Cache miss - fetching all posts from database");
+        List<Post> posts = getAllPostsFromDatabase();
+        
+        // Cache the DTOs to prevent lazy loading issues
+        List<CacheablePostDto> cacheablePosts = posts.stream()
+                .map(post -> {
+                    Integer commentCount = commentRepository.countCommentsByPostIdAndDeletedDateIsNull(post.getId());
+                    return cacheMapper.toDto(post, commentCount);
+                })
+                .toList();
+        
+        redisTemplate.opsForValue().set(cacheKey, cacheablePosts, Duration.ofMinutes(10));
+        
+        return posts;
+    }
+    
+    private List<Post> getAllPostsFromDatabase() {
         User currentUser = currentUserProvider.getAuthenticatedUser();
 
         // If user is anonymous, return only non-deleted posts
@@ -333,5 +449,33 @@ public class PostServiceImpl implements PostService {
             }
         }
         commentRepository.saveAll(comments);
+        
+        log.info("Restored post with ID: {} by user: {}", id, currentUser.getName());
+    }
+
+    /**
+     * Cache post reaction counts for quick access
+     */
+    private void cachePostReactionCounts(Post post) {
+        String reactionsKey = "reactions:post:" + post.getId();
+        redisTemplate.opsForHash().put(reactionsKey, "likes", post.getLikes());
+        redisTemplate.opsForHash().put(reactionsKey, "dislikes", post.getDislikes());
+        redisTemplate.expire(reactionsKey, Duration.ofMinutes(10));
+    }
+
+    /**
+     * Remove post from all relevant caches
+     */
+    private void evictPostCaches(Long postId) {
+        // Remove individual post cache
+        redisTemplate.delete("posts::post:" + postId);
+        
+        // Remove reaction counts cache
+        redisTemplate.delete("reactions:post:" + postId);
+        
+        // Remove from trending posts if exists
+        redisTemplate.opsForZSet().remove("trending_posts", postId.toString());
+        
+        log.debug("Evicted caches for post ID: {}", postId);
     }
 }

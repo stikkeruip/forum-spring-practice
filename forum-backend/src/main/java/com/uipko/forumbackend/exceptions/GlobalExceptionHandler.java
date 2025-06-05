@@ -225,6 +225,77 @@ public class GlobalExceptionHandler {
 
     /**
      * ================================
+     * Friend Exception Handlers  
+     * ================================
+     */
+    
+    @ExceptionHandler(SelfFriendRequestException.class)
+    public ResponseEntity<ErrorResponseDto> handleSelfFriendRequestException(
+            SelfFriendRequestException ex, HttpServletRequest request) {
+        ErrorResponseDto error = ErrorResponseDto.of(
+                PROBLEM_BASE_URL + "/self-friend-request",
+                "Invalid Friend Request",
+                HttpStatus.BAD_REQUEST.value(),
+                "Cannot send friend request to yourself",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+    
+    @ExceptionHandler(FriendRequestAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponseDto> handleFriendRequestAlreadyExistsException(
+            FriendRequestAlreadyExistsException ex, HttpServletRequest request) {
+        ErrorResponseDto error = ErrorResponseDto.of(
+                PROBLEM_BASE_URL + "/friend-request-exists",
+                "Friend Request Already Exists",
+                HttpStatus.CONFLICT.value(),
+                "A friend request already exists between these users",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+    
+    @ExceptionHandler(FriendshipNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> handleFriendshipNotFoundException(
+            FriendshipNotFoundException ex, HttpServletRequest request) {
+        ErrorResponseDto error = ErrorResponseDto.of(
+                PROBLEM_BASE_URL + "/friendship-not-found",
+                "Friendship Not Found",
+                HttpStatus.NOT_FOUND.value(),
+                "The requested friendship does not exist",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+    
+    @ExceptionHandler(InvalidFriendResponseException.class)
+    public ResponseEntity<ErrorResponseDto> handleInvalidFriendResponseException(
+            InvalidFriendResponseException ex, HttpServletRequest request) {
+        ErrorResponseDto error = ErrorResponseDto.of(
+                PROBLEM_BASE_URL + "/invalid-friend-response",
+                "Invalid Friend Response",
+                HttpStatus.BAD_REQUEST.value(),
+                "Friend response must be either ACCEPT or DECLINE",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+    
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ErrorResponseDto> handleRateLimitExceededException(
+            RateLimitExceededException ex, HttpServletRequest request) {
+        ErrorResponseDto error = ErrorResponseDto.of(
+                PROBLEM_BASE_URL + "/rate-limit-exceeded",
+                "Rate Limit Exceeded",
+                HttpStatus.TOO_MANY_REQUESTS.value(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(error);
+    }
+
+    /**
+     * ================================
      * Security Exception Handlers
      * ================================
      */

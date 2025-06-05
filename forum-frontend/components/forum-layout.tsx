@@ -4,6 +4,8 @@ import type React from "react"
 import Link from "next/link"
 import ProgressiveAuth from "@/components/progressive-auth"
 import { WhosOnline } from "@/components/whos-online"
+import { FriendsList } from "@/components/friends-list"
+import { FriendRequests } from "@/components/friend-requests"
 
 export default function ForumLayout({ children, isCreating, setIsCreating }: { children: React.ReactNode; isCreating?: boolean; setIsCreating?: (value: boolean) => void }) {
     return (
@@ -33,12 +35,14 @@ export default function ForumLayout({ children, isCreating, setIsCreating }: { c
             </header>
 
             <main className="flex-1">
-                <div className="container py-6 px-4 mx-auto">
-                    <div className="flex gap-6 max-w-6xl mx-auto">
-                        <div className="flex-1 max-w-4xl">{children}</div>
-                        <aside className="hidden lg:block w-80 flex-shrink-0">
-                            <div className="sticky top-20">
+                <div className="w-full py-6 px-4">
+                    <div className="flex justify-center">
+                        <div className="w-full max-w-4xl">{children}</div>
+                        <aside className="hidden lg:block absolute right-4 top-[89px]">
+                            <div className="sticky top-[89px] w-64 space-y-4">
                                 <WhosOnline />
+                                <FriendRequests />
+                                <FriendsList />
                             </div>
                         </aside>
                     </div>

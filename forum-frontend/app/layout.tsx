@@ -3,6 +3,7 @@ import './globals.css'
 import { AuthProvider } from '@/components/auth-provider'
 import { WebSocketProvider } from '@/components/websocket-provider'
 import { WebSocketFallback } from '@/components/websocket-fallback'
+import { QueryProvider } from '@/components/query-provider'
 import { Toaster } from '@/components/ui/toaster'
 
 export const metadata: Metadata = {
@@ -18,14 +19,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider>
-          <WebSocketProvider>
-            <WebSocketFallback>
-              {children}
-              <Toaster />
-            </WebSocketFallback>
-          </WebSocketProvider>
-        </AuthProvider>
+        <QueryProvider>
+          <AuthProvider>
+            <WebSocketProvider>
+              <WebSocketFallback>
+                {children}
+                <Toaster />
+              </WebSocketFallback>
+            </WebSocketProvider>
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   )
