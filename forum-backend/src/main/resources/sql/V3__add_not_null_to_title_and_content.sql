@@ -1,3 +1,0 @@
-ALTER TABLE posts
-    ALTER COLUMN title SET NOT NULL,
-    ALTER COLUMN content SET NOT NULL;
